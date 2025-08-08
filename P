@@ -1,0 +1,231 @@
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Sound
+local clickSound = Instance.new("Sound", SoundService)
+clickSound.SoundId = "rbxassetid://9118823105"
+clickSound.Volume = 0.7
+
+-- GUI
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "UltimateUtilityGUI"
+screenGui.ResetOnSpawn = false
+
+-- Toggle Button
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 120, 0, 28)
+toggleButton.Position = UDim2.new(0, 10, 0, 10)
+toggleButton.Text = "📦 Sell Menu"
+toggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.TextSize = 14
+toggleButton.Parent = screenGui
+
+-- Main Frame (เล็กลงสำหรับมือถือ)
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 240, 0, 320)
+frame.Position = UDim2.new(0, 10, 0, 50)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.Visible = false
+frame.Parent = screenGui
+
+-- Drag รองรับมือถือและคอม
+local dragging, dragStart, startPos
+local function updateInput(input)
+	if dragging then
+		local delta = input.Position - dragStart
+		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end
+
+frame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = frame.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		updateInput(input)
+	end
+end)
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 28)
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.Text = "📦 Sell Anywhere"
+title.Parent = frame
+
+-- Sell Button
+local sellBtn = Instance.new("TextButton")
+sellBtn.Size = UDim2.new(1, -20, 0, 28)
+sellBtn.Position = UDim2.new(0, 10, 0, 35)
+sellBtn.Text = "💰 Sell All"
+sellBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 75)
+sellBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+sellBtn.Font = Enum.Font.GothamBold
+sellBtn.TextSize = 14
+sellBtn.Parent = frame
+
+-- Auto Sell Button
+local autoSellBtn = Instance.new("TextButton")
+autoSellBtn.Size = UDim2.new(1, -20, 0, 28)
+autoSellBtn.Position = UDim2.new(0, 10, 0, 68)
+autoSellBtn.Text = "🔁 Auto Sell: OFF"
+autoSellBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+autoSellBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoSellBtn.Font = Enum.Font.Gotham
+autoSellBtn.TextSize = 13
+autoSellBtn.Parent = frame
+
+-- Threshold Box
+local inputBox = Instance.new("TextBox")
+inputBox.Size = UDim2.new(1, -20, 0, 28)
+inputBox.Position = UDim2.new(0, 10, 0, 101)
+inputBox.Text = "500"
+inputBox.PlaceholderText = "Enter amount (1-500)"
+inputBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+inputBox.TextColor3 = Color3.fromRGB(0, 0, 0)
+inputBox.Font = Enum.Font.Gotham
+inputBox.TextSize = 13
+inputBox.Parent = frame
+
+-- Auto Lock Button
+local autoLockBtn = Instance.new("TextButton")
+autoLockBtn.Size = UDim2.new(1, -20, 0, 28)
+autoLockBtn.Position = UDim2.new(0, 10, 0, 134)
+autoLockBtn.Text = "🔒 Auto Lock: OFF"
+autoLockBtn.BackgroundColor3 = Color3.fromRGB(120, 120, 120)
+autoLockBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoLockBtn.Font = Enum.Font.Gotham
+autoLockBtn.TextSize = 13
+autoLockBtn.Parent = frame
+
+-- Language Toggle
+local langToggle = Instance.new("TextButton")
+langToggle.Size = UDim2.new(1, -20, 0, 28)
+langToggle.Position = UDim2.new(0, 10, 1, -35)
+langToggle.Text = "🌐 Language: EN"
+langToggle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+langToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+langToggle.Font = Enum.Font.Gotham
+langToggle.TextSize = 13
+langToggle.Parent = frame
+
+-- Checkboxes
+local lockRarities = {Common = false, Uncommon = false, Rare = false, Epic = false, Legendary = false, Mythic = false}
+local rarityList = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic"}
+for i, rarity in ipairs(rarityList) do
+	local box = Instance.new("TextButton")
+	box.Size = UDim2.new(0, 110, 0, 22)
+	box.Position = UDim2.new(0, 10 + ((i - 1) % 2) * 115, 0, 170 + math.floor((i - 1) / 2) * 26)
+	box.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+	box.TextColor3 = Color3.fromRGB(255, 255, 255)
+	box.Font = Enum.Font.Gotham
+	box.TextSize = 12
+	box.Text = "[ ] " .. rarity
+	box.Name = rarity
+	box.Parent = frame
+
+	box.MouseButton1Click:Connect(function()
+		clickSound:Play()
+		lockRarities[rarity] = not lockRarities[rarity]
+		box.Text = (lockRarities[rarity] and "[✔] " or "[ ] ") .. rarity
+	end)
+end
+
+-- State
+local isThai = false
+local autoSell = false
+local autoLock = false
+local threshold = 500
+
+-- GUI Logic
+toggleButton.MouseButton1Click:Connect(function()
+	clickSound:Play()
+	frame.Visible = not frame.Visible
+end)
+
+sellBtn.MouseButton1Click:Connect(function()
+	clickSound:Play()
+	pcall(function()
+		ReplicatedStorage.Remotes.Shop.SellAll:InvokeServer()
+	end)
+end)
+
+autoSellBtn.MouseButton1Click:Connect(function()
+	clickSound:Play()
+	autoSell = not autoSell
+	autoSellBtn.Text = (isThai and "🔁 ขายอัตโนมัติ: " or "🔁 Auto Sell: ") .. (autoSell and (isThai and "เปิด" or "ON") or (isThai and "ปิด" or "OFF"))
+end)
+
+autoLockBtn.MouseButton1Click:Connect(function()
+	clickSound:Play()
+	autoLock = not autoLock
+	autoLockBtn.Text = (isThai and "🔒 ล็อกอัตโนมัติ: " or "🔒 Auto Lock: ") .. (autoLock and (isThai and "เปิด" or "ON") or (isThai and "ปิด" or "OFF"))
+end)
+
+inputBox.FocusLost:Connect(function(enter)
+	local val = tonumber(inputBox.Text)
+	if val and val >= 1 and val <= 500 then
+		threshold = val
+	else
+		inputBox.Text = tostring(threshold)
+	end
+end)
+
+langToggle.MouseButton1Click:Connect(function()
+	clickSound:Play()
+	isThai = not isThai
+	langToggle.Text = isThai and "🌐 ภาษา: ไทย" or "🌐 Language: EN"
+	title.Text = isThai and "📦 ขายของทุกที่" or "📦 Sell Anywhere"
+	sellBtn.Text = isThai and "💰 ขายทั้งหมด" or "💰 Sell All"
+	autoSellBtn.Text = (isThai and "🔁 ขายอัตโนมัติ: " or "🔁 Auto Sell: ") .. (autoSell and (isThai and "เปิด" or "ON") or (isThai and "ปิด" or "OFF"))
+	autoLockBtn.Text = (isThai and "🔒 ล็อกอัตโนมัติ: " or "🔒 Auto Lock: ") .. (autoLock and (isThai and "เปิด" or "ON") or (isThai and "ปิด" or "OFF"))
+	toggleButton.Text = isThai and "📦 เมนูขาย" or "📦 Sell Menu"
+end)
+
+-- Loop: Auto Sell + Lock (แบบไม่ปลดล็อกซ้ำ)
+RunService.RenderStepped:Connect(function()
+	local backpack = player:FindFirstChild("Backpack")
+	if backpack then
+		local count = 0
+		for _, tool in pairs(backpack:GetChildren()) do
+			if tool:IsA("Tool") then
+				count += 1
+				local rarity = tool:GetAttribute("Rarity")
+				local isLocked = tool:GetAttribute("Locked")
+
+				if autoLock and rarity and lockRarities[rarity] and not isLocked then
+					pcall(function()
+						ReplicatedStorage.Remotes.Inventory.ToggleLock:FireServer(tool)
+						clickSound:Play()
+					end)
+				end
+			end
+		end
+
+		if autoSell and count >= threshold then
+			pcall(function()
+				ReplicatedStorage.Remotes.Shop.SellAll:InvokeServer()
+			end)
+		end
+	end
+end)
