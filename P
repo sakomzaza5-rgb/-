@@ -147,7 +147,7 @@ for i, rarity in ipairs(rarityList) do
 	box.MouseButton1Click:Connect(function()
 		clickSound:Play()
 		lockRarities[rarity] = not lockRarities[rarity]
-		box.Text = (lockRarities[rarity] and "[✔] " or "[ ] ") .. rarity
+		box.Text = (lockRarities[rarity] and "[✅] " or "[❎] ") .. rarity
 	end)
 end
 
