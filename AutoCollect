@@ -16,7 +16,7 @@ local running = false
 local watching = false
 local collapsed = false
 local TARGET_NAMES = {}
-local TELEPORT_DELAY = 0.2
+local TELEPORT_DELAY = 0.1
 local ClickDelay = 00.1
 
 -- 🔊 เสียงคลิก
