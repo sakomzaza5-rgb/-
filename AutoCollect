@@ -16,8 +16,8 @@ local running = false
 local watching = false
 local collapsed = false
 local TARGET_NAMES = {}
-local TELEPORT_DELAY = 0.1
-local ClickDelay = 00.1
+local TELEPORT_DELAY = 0.2
+local ClickDelay = 000.01
 
 -- 🔊 เสียงคลิก
 local ClickSound = Instance.new("Sound")
@@ -118,7 +118,7 @@ ToggleButton.Parent = InnerFrame
 Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0,8)
 
 -- ช่องใส่ชื่อ Part ใหม่
-local TargetInput = Instance.new("TextBox")
+local TargetInput = Instance.new("Candy")
 TargetInput.Size = UDim2.new(0.8,0,0,30)
 TargetInput.Position = UDim2.new(0.1,0,0.2,0)
 TargetInput.PlaceholderText = "พิมพ์ชื่อ Part/Model เช่น Crystal"
