@@ -1,0 +1,270 @@
+-- 🍬 Auto Collect System V5-Proximity (LocalScript)
+-- StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+local running = false
+local watching = false
+local collapsed = false
+local TARGET_NAMES = {}
+local TELEPORT_DELAY = 0.1
+local ClickDelay = 00.1
+
+-- 🔊 เสียงคลิก
+local ClickSound = Instance.new("Sound")
+ClickSound.SoundId = "rbxassetid://9118823105"
+ClickSound.Volume = 1
+ClickSound.Parent = SoundService
+
+-- 🔹 สร้างหรือโหลด Machine ID
+local function getMachineID()
+	local idValue = ReplicatedStorage:FindFirstChild("MachineID_"..LocalPlayer.UserId)
+	if idValue then return idValue.Value end
+	local newID = HttpService:GenerateGUID(false)
+	local newValue = Instance.new("StringValue")
+	newValue.Name = "MachineID_"..LocalPlayer.UserId
+	newValue.Value = newID
+	newValue.Parent = ReplicatedStorage
+	return newID
+end
+local MACHINE_ID = getMachineID()
+
+-- 🔹 บันทึกและโหลด TARGET_NAMES
+local function saveTargets()
+	local json = HttpService:JSONEncode(TARGET_NAMES)
+	local value = ReplicatedStorage:FindFirstChild("Targets_"..MACHINE_ID)
+	if not value then
+		value = Instance.new("StringValue")
+		value.Name = "Targets_"..MACHINE_ID
+		value.Parent = ReplicatedStorage
+	end
+	value.Value = json
+end
+
+local function loadTargets()
+	local value = ReplicatedStorage:FindFirstChild("Targets_"..MACHINE_ID)
+	if value then
+		local success, data = pcall(function() return HttpService:JSONDecode(value.Value) end)
+		if success and type(data)=="table" then TARGET_NAMES = data end
+	end
+end
+loadTargets()
+
+----------------------------
+-- GUI BlackHub
+----------------------------
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AutoCollectGUI_V5_Proximity"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0,280,0,260)
+MainFrame.Position = UDim2.new(0.05,0,0.25,0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0,10)
+Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(70,70,70)
+
+-- หัวข้อ
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,0,0,30)
+Title.BackgroundTransparency = 1
+Title.Text = "🍬 Auto Collect V5-Proximity"
+Title.TextColor3 = Color3.fromRGB(255,255,255)
+Title.TextSize = 16
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+-- ปุ่มพับ
+local CollapseButton = Instance.new("TextButton")
+CollapseButton.Size = UDim2.new(0,30,0,30)
+CollapseButton.Position = UDim2.new(1,-35,0,5)
+CollapseButton.BackgroundColor3 = Color3.fromRGB(40,40,40)
+CollapseButton.Text = "-"
+CollapseButton.TextColor3 = Color3.fromRGB(255,255,255)
+CollapseButton.Font = Enum.Font.GothamBold
+CollapseButton.TextSize = 20
+CollapseButton.Parent = MainFrame
+Instance.new("UICorner", CollapseButton).CornerRadius = UDim.new(0,6)
+
+local InnerFrame = Instance.new("Frame")
+InnerFrame.Size = UDim2.new(1,-10,1,-45)
+InnerFrame.Position = UDim2.new(0,5,0,35)
+InnerFrame.BackgroundTransparency = 1
+InnerFrame.Parent = MainFrame
+
+-- ปุ่มเปิด/ปิด
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(0.8,0,0,35)
+ToggleButton.Position = UDim2.new(0.1,0,0,0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
+ToggleButton.Text = "🔴 OFF"
+ToggleButton.TextColor3 = Color3.fromRGB(255,255,255)
+ToggleButton.TextSize = 16
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Parent = InnerFrame
+Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0,8)
+
+-- ช่องใส่ชื่อ Part ใหม่
+local TargetInput = Instance.new("TextBox")
+TargetInput.Size = UDim2.new(0.8,0,0,30)
+TargetInput.Position = UDim2.new(0.1,0,0.2,0)
+TargetInput.PlaceholderText = "พิมพ์ชื่อ Part/Model เช่น Crystal"
+TargetInput.BackgroundColor3 = Color3.fromRGB(40,40,40)
+TargetInput.TextColor3 = Color3.fromRGB(255,255,255)
+TargetInput.TextSize = 14
+TargetInput.Font = Enum.Font.Gotham
+TargetInput.ClearTextOnFocus = false
+TargetInput.Parent = InnerFrame
+Instance.new("UICorner", TargetInput).CornerRadius = UDim.new(0,6)
+
+-- ปุ่มเพิ่มชื่อเป้าหมาย
+local AddButton = Instance.new("TextButton")
+AddButton.Size = UDim2.new(0.8,0,0,30)
+AddButton.Position = UDim2.new(0.1,0,0.4,0)
+AddButton.BackgroundColor3 = Color3.fromRGB(50,120,200)
+AddButton.Text = "➕ เพิ่มชื่อเป้าหมาย"
+AddButton.TextColor3 = Color3.fromRGB(255,255,255)
+AddButton.TextSize = 14
+AddButton.Font = Enum.Font.GothamBold
+AddButton.Parent = InnerFrame
+Instance.new("UICorner", AddButton).CornerRadius = UDim.new(0,6)
+
+-- สถานะ
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1,-10,0,30)
+StatusLabel.Position = UDim2.new(0,5,0.75,0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "🕹️ สถานะ: รอเริ่มทำงาน"
+StatusLabel.TextColor3 = Color3.fromRGB(200,200,200)
+StatusLabel.TextSize = 14
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Parent = InnerFrame
+
+---------------------------
+-- พับ GUI
+---------------------------
+CollapseButton.MouseButton1Click:Connect(function()
+	collapsed = not collapsed
+	InnerFrame.Visible = not collapsed
+	CollapseButton.Text = collapsed and "+" or "-"
+end)
+
+---------------------------
+-- ฟังก์ชันหลัก Auto Collect
+---------------------------
+local function findTargets()
+	local targets = {}
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if (obj:IsA("BasePart") or obj:IsA("MeshPart") or obj:IsA("Model")) and table.find(TARGET_NAMES,obj.Name) then
+			table.insert(targets,obj)
+		end
+	end
+	return targets
+end
+
+local function getPartFromModel(model)
+	for _, child in ipairs(model:GetDescendants()) do
+		if child:IsA("BasePart") or child:IsA("MeshPart") then
+			return child
+		end
+	end
+	return nil
+end
+
+local function warpAndCollect(obj)
+	if not obj or not obj:IsDescendantOf(Workspace) then return end
+	if not Character or not Character:FindFirstChild("HumanoidRootPart") then
+		Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+		HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+	end
+	local part = (obj:IsA("Model") and getPartFromModel(obj)) or obj
+	if not part then return end
+
+	StatusLabel.Text = "🌀 กำลังเก็บ: "..obj.Name
+	HumanoidRootPart.CFrame = part.CFrame + Vector3.new(0,3,0)
+	task.wait(0.05)
+
+	local prompt = part:FindFirstChildWhichIsA("ProximityPrompt",true)
+	if prompt then
+		task.spawn(function()
+			while running and prompt.Parent do
+				pcall(function() fireproximityprompt(prompt) end)
+				task.wait(ClickDelay)
+			end
+		end)
+	end
+end
+
+local function autoCollectLoop()
+	while running do
+		for _, obj in ipairs(findTargets()) do
+			if not running then break end
+			warpAndCollect(obj)
+			task.wait(TELEPORT_DELAY)
+		end
+		StatusLabel.Text = "✅ รอของเกิดใหม่..."
+		task.wait(0.3)
+	end
+end
+
+local function startWatching()
+	if watching then return end
+	watching = true
+	Workspace.DescendantAdded:Connect(function(obj)
+		if running and obj and (obj:IsA("BasePart") or obj:IsA("MeshPart") or obj:IsA("Model")) then
+			if table.find(TARGET_NAMES,obj.Name) then
+				task.wait(0.05)
+				warpAndCollect(obj)
+			end
+		end
+	end)
+end
+
+---------------------------
+-- ปุ่มเปิด/ปิด
+---------------------------
+ToggleButton.MouseButton1Click:Connect(function()
+	ClickSound:Play()
+	running = not running
+	if running then
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
+		ToggleButton.Text = "🟢 ON"
+		StatusLabel.Text = "🚀 กำลังทำงาน..."
+		task.spawn(autoCollectLoop)
+		startWatching()
+	else
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
+		ToggleButton.Text = "🔴 OFF"
+		StatusLabel.Text = "🕹️ หยุดทำงาน"
+	end
+end)
+
+---------------------------
+-- เพิ่มชื่อ Part ใหม่
+---------------------------
+AddButton.MouseButton1Click:Connect(function()
+	ClickSound:Play()
+	local name = TargetInput.Text
+	if name ~= "" and not table.find(TARGET_NAMES,name) then
+		table.insert(TARGET_NAMES,name)
+		saveTargets()
+		StatusLabel.Text = "✅ เพิ่มเป้าหมาย: "..name
+	else
+		StatusLabel.Text = "⚠️ ใส่ชื่อซ้ำหรือว่างเปล่า"
+	end
+end)
+
+print("✅ Auto Collect V5-Proximity พร้อมใช้งาน (LocalScript)")
