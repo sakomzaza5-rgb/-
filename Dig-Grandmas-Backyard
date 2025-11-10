@@ -1,0 +1,176 @@
+-- 🪓 Auto Dig 360° Full Around v4 (by ChatGPT)
+-- 🔧 LocalScript — ใส่ใน StarterPlayerScripts
+
+----------------------------------------------------
+-- 🧩 Services
+----------------------------------------------------
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Root = Character:WaitForChild("HumanoidRootPart")
+
+local Remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RemoteEvents"):WaitForChild("RequestDig")
+
+----------------------------------------------------
+-- 🎚️ Settings
+----------------------------------------------------
+local RANGE = 100 -- 10–1000
+local STEP = 10
+local HEIGHT_STEP = 10 -- ความสูงแต่ละชั้น
+local DELAY = 0.05
+local AutoDigEnabled = false
+
+----------------------------------------------------
+-- 🎵 Sound
+----------------------------------------------------
+local clickSound = Instance.new("Sound")
+clickSound.SoundId = "rbxassetid://9118823101"
+clickSound.Volume = 1
+clickSound.Parent = SoundService
+
+----------------------------------------------------
+-- 🖥️ GUI (Blackhub Style)
+----------------------------------------------------
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+ScreenGui.Name = "AutoDigGUI"
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 280, 0, 190)
+MainFrame.Position = UDim2.new(0.35, 0, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Text = "⚒️ Auto Dig 360°"
+Title.Size = UDim2.new(1, 0, 0, 28)
+Title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 18
+Title.Font = Enum.Font.GothamBold
+
+local ToggleButton = Instance.new("TextButton", MainFrame)
+ToggleButton.Size = UDim2.new(0, 250, 0, 35)
+ToggleButton.Position = UDim2.new(0.5, -125, 0, 40)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+ToggleButton.Text = "🔴 Auto Dig: OFF"
+ToggleButton.TextColor3 = Color3.new(1, 1, 1)
+ToggleButton.TextSize = 18
+ToggleButton.Font = Enum.Font.GothamBold
+Instance.new("UICorner", ToggleButton)
+
+local RangeLabel = Instance.new("TextLabel", MainFrame)
+RangeLabel.Text = "Range: "..RANGE
+RangeLabel.Position = UDim2.new(0, 15, 0, 90)
+RangeLabel.Size = UDim2.new(0, 100, 0, 20)
+RangeLabel.TextColor3 = Color3.new(1,1,1)
+RangeLabel.BackgroundTransparency = 1
+RangeLabel.TextXAlignment = Enum.TextXAlignment.Left
+RangeLabel.Font = Enum.Font.Gotham
+RangeLabel.TextSize = 14
+
+local RangeBox = Instance.new("TextBox", MainFrame)
+RangeBox.Position = UDim2.new(0, 120, 0, 90)
+RangeBox.Size = UDim2.new(0, 140, 0, 25)
+RangeBox.Text = tostring(RANGE)
+RangeBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
+RangeBox.TextColor3 = Color3.new(1,1,1)
+RangeBox.TextSize = 14
+RangeBox.Font = Enum.Font.Gotham
+Instance.new("UICorner", RangeBox)
+
+local DelayLabel = Instance.new("TextLabel", MainFrame)
+DelayLabel.Text = "Delay: "..DELAY
+DelayLabel.Position = UDim2.new(0, 15, 0, 125)
+DelayLabel.Size = UDim2.new(0, 100, 0, 20)
+DelayLabel.TextColor3 = Color3.new(1,1,1)
+DelayLabel.BackgroundTransparency = 1
+DelayLabel.TextXAlignment = Enum.TextXAlignment.Left
+DelayLabel.Font = Enum.Font.Gotham
+DelayLabel.TextSize = 14
+
+local DelayBox = Instance.new("TextBox", MainFrame)
+DelayBox.Position = UDim2.new(0, 120, 0, 125)
+DelayBox.Size = UDim2.new(0, 140, 0, 25)
+DelayBox.Text = tostring(DELAY)
+DelayBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
+DelayBox.TextColor3 = Color3.new(1,1,1)
+DelayBox.TextSize = 14
+DelayBox.Font = Enum.Font.Gotham
+Instance.new("UICorner", DelayBox)
+
+----------------------------------------------------
+-- ⚙️ Core Function (Full 360°)
+----------------------------------------------------
+local function digAtPosition(pos)
+	local args = {pos, Vector3.new(0, -1, 0)}
+	Remote:FireServer(unpack(args))
+end
+
+local function startAutoDig()
+	while AutoDigEnabled do
+		task.wait(DELAY)
+		if not Root or not Root.Parent then
+			Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+			Root = Character:WaitForChild("HumanoidRootPart")
+		end
+
+		-- 🔄 ขุดทุกเลเยอร์ในรัศมี (บน-กลาง-ล่าง)
+		for y = -RANGE, RANGE, HEIGHT_STEP do
+			for x = -RANGE, RANGE, STEP do
+				for z = -RANGE, RANGE, STEP do
+					local pos = Vector3.new(
+						Root.Position.X + x,
+						Root.Position.Y + y,
+						Root.Position.Z + z
+					)
+					digAtPosition(pos)
+				end
+			end
+		end
+	end
+end
+
+----------------------------------------------------
+-- 🧠 Button Controls
+----------------------------------------------------
+ToggleButton.MouseButton1Click:Connect(function()
+	clickSound:Play()
+	AutoDigEnabled = not AutoDigEnabled
+	if AutoDigEnabled then
+		ToggleButton.Text = "🟢 Auto Dig: ON"
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
+		task.spawn(startAutoDig)
+	else
+		ToggleButton.Text = "🔴 Auto Dig: OFF"
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
+	end
+end)
+
+RangeBox.FocusLost:Connect(function()
+	local val = tonumber(RangeBox.Text)
+	if val and val >= 10 and val <= 1000 then
+		RANGE = val
+		RangeLabel.Text = "Range: "..val
+	else
+		RangeBox.Text = tostring(RANGE)
+	end
+end)
+
+DelayBox.FocusLost:Connect(function()
+	local val = tonumber(DelayBox.Text)
+	if val and val >= 0.01 and val <= 1 then
+		DELAY = val
+		DelayLabel.Text = "Delay: "..val
+	else
+		DelayBox.Text = tostring(DELAY)
+	end
+end)
