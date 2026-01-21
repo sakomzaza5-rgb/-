@@ -1,0 +1,186 @@
+-- 🔓 Unlock Doors + Safes + Highlight + Hit NPC GUI (LocalScript)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+-- ===== Remotes =====
+local LockpickRemote = ReplicatedStorage
+	:WaitForChild("Remotes")
+	:WaitForChild("Utilities")
+	:WaitForChild("LockpickMinigame")
+
+local StealRemote = ReplicatedStorage
+	:WaitForChild("Remotes")
+	:WaitForChild("LayedEyesUponItem")
+
+local HitNPCRemote = ReplicatedStorage
+	:WaitForChild("Remotes")
+	:WaitForChild("Tools")
+	:WaitForChild("HitNPC")
+
+-- ===== Highlight Settings =====
+local HIGHLIGHT_DISTANCE = 2000
+local HIGHLIGHT_COLOR = Color3.fromRGB(120, 255, 120)
+
+-- ===== GUI =====
+local gui = Instance.new("ScreenGui")
+gui.Name = "UnlockAllGUI"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Toggle Button
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 140, 0, 35)
+toggleBtn.Position = UDim2.new(0, 10, 0, 10)
+toggleBtn.Text = "🔓 Unlock GUI"
+toggleBtn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+toggleBtn.TextColor3 = Color3.new(1,1,1)
+toggleBtn.Parent = gui
+toggleBtn.Active = true
+toggleBtn.Draggable = true
+
+-- Main Frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 270, 0, 300)
+frame.Position = UDim2.new(0, 10, 0, 55)
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+frame.Parent = gui
+frame.Active = true
+frame.Draggable = true
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 10)
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 35)
+title.Text = "🔐 Unlock + NPC"
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.new(1,1,1)
+title.Parent = frame
+
+-- Button Creator
+local function makeButton(text, y, color)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.new(0.9, 0, 0, 38)
+	b.Position = UDim2.new(0.05, 0, 0, y)
+	b.Text = text
+	b.BackgroundColor3 = color
+	b.TextColor3 = Color3.new(1,1,1)
+	b.Parent = frame
+	Instance.new("UICorner", b)
+	return b
+end
+
+local doorBtn  = makeButton("ปลดล็อกประตูทั้งหมด", 45, Color3.fromRGB(60,120,60))
+local safeBtn  = makeButton("เปิดตู้เซฟทั้งหมด", 90, Color3.fromRGB(60,90,120))
+local npcBtn   = makeButton("ตี NPC ทุกตัว", 135, Color3.fromRGB(120,80,60))
+local hlBtn    = makeButton("Highlight : OFF", 180, Color3.fromRGB(90,90,90))
+local closeBtn = makeButton("พับ GUI", 230, Color3.fromRGB(120,60,60))
+
+-- ===== Unlock Logic =====
+local function unlockDoors()
+	local doors = workspace.Map:FindFirstChild("Doors")
+	if not doors then return end
+
+	for _, m in ipairs(doors:GetDescendants()) do
+		if m:IsA("Model") and m:FindFirstChild("DoorModel") then
+			pcall(function()
+				LockpickRemote:FireServer(m.DoorModel, true)
+			end)
+		end
+	end
+end
+
+local function unlockSafes()
+	local stealables = workspace.Map:FindFirstChild("StealableItems")
+	if not stealables then return end
+
+	for _, obj in ipairs(stealables:GetDescendants()) do
+		if obj.Name == "StealPrompt" then
+			pcall(function()
+				StealRemote:FireServer(obj)
+			end)
+		end
+	end
+end
+
+-- ===== Hit NPC Logic (ไม่สนใจชื่อ) =====
+local function hitAllNPC()
+	for _, model in ipairs(workspace:GetDescendants()) do
+		if model:IsA("Model")
+			and model:FindFirstChild("Humanoid")
+			and not Players:GetPlayerFromCharacter(model) then
+
+			pcall(function()
+				HitNPCRemote:FireServer(model, "Crowbar")
+			end)
+		end
+	end
+end
+
+-- ===== Highlight Logic =====
+local stealables = workspace.Map:WaitForChild("StealableItems")
+local highlights = {}
+local highlightEnabled = false
+
+local function getOrCreateHighlight(model)
+	if highlights[model] then return highlights[model] end
+
+	local h = Instance.new("Highlight")
+	h.Name = "StealableHighlight"
+	h.FillColor = HIGHLIGHT_COLOR
+	h.FillTransparency = 0.5
+	h.OutlineTransparency = 1
+	h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	h.Enabled = false
+	h.Adornee = model
+	h.Parent = model
+
+	highlights[model] = h
+	return h
+end
+
+RunService.RenderStepped:Connect(function()
+	if not highlightEnabled then
+		for _, h in pairs(highlights) do h.Enabled = false end
+		return
+	end
+
+	for _, obj in ipairs(stealables:GetDescendants()) do
+		if obj.Name == "StealPrompt" then
+			local model = obj.Parent
+			local part = model and (model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart"))
+			if part then
+				local h = getOrCreateHighlight(model)
+				h.Enabled = (hrp.Position - part.Position).Magnitude <= HIGHLIGHT_DISTANCE
+			end
+		end
+	end
+end)
+
+-- ===== Button Events =====
+doorBtn.MouseButton1Click:Connect(unlockDoors)
+safeBtn.MouseButton1Click:Connect(unlockSafes)
+npcBtn.MouseButton1Click:Connect(hitAllNPC)
+
+hlBtn.MouseButton1Click:Connect(function()
+	highlightEnabled = not highlightEnabled
+	hlBtn.Text = highlightEnabled and "Highlight : ON" or "Highlight : OFF"
+	hlBtn.BackgroundColor3 = highlightEnabled
+		and Color3.fromRGB(60,120,60)
+		or Color3.fromRGB(90,90,90)
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+	frame.Visible = false
+end)
+
+toggleBtn.MouseButton1Click:Connect(function()
+	frame.Visible = not frame.Visible
+end)
+
+print("✅ Unlock + Safes + NPC Hit GUI Loaded")
