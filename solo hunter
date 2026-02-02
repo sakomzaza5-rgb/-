@@ -1,0 +1,223 @@
+-- 🖤 AUTO ATTACK + HOVER FINAL
+-- LocalScript | StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+-- ===== CHARACTER SAFE =====
+local char, hrp, humanoid
+local function setupCharacter(c)
+	char = c
+	humanoid = c:WaitForChild("Humanoid")
+	hrp = c:WaitForChild("HumanoidRootPart")
+end
+setupCharacter(player.Character or player.CharacterAdded:Wait())
+player.CharacterAdded:Connect(function(c)
+	task.wait(0.1)
+	setupCharacter(c)
+end)
+
+-- ===== REMOTE =====
+local CombatRemote = ReplicatedStorage
+	:WaitForChild("RemoteServices")
+	:WaitForChild("CombatService")
+	:WaitForChild("RF")
+	:WaitForChild("UseWeapon")
+
+local MobsFolder = workspace:WaitForChild("Mobs")
+
+-- ===== SETTINGS =====
+local AUTO = false
+local LOOP_DELAY = 0.05
+local SkillIndex = 0
+local HitType = 0.5
+local HitDelay = 0.5
+local HEAD_OFFSET = 5
+local SAME_ZONE_DISTANCE = 500
+
+-- ===== HOVER SYSTEM (บินค้าง) =====
+local flyBV, flyBG
+
+local function enableHover(cf)
+	if not hrp or not humanoid then return end
+
+	if flyBV then flyBV:Destroy() end
+	if flyBG then flyBG:Destroy() end
+
+	flyBV = Instance.new("BodyVelocity")
+	flyBV.MaxForce = Vector3.new(1e9,1e9,1e9)
+	flyBV.Velocity = Vector3.zero
+	flyBV.Parent = hrp
+
+	flyBG = Instance.new("BodyGyro")
+	flyBG.MaxTorque = Vector3.new(1e9,1e9,1e9)
+	flyBG.CFrame = cf
+	flyBG.P = 1e5
+	flyBG.Parent = hrp
+
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+end
+
+local function disableHover()
+	if flyBV then flyBV:Destroy() flyBV = nil end
+	if flyBG then flyBG:Destroy() flyBG = nil end
+	if humanoid then
+		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+	end
+end
+
+-- ===== GUI =====
+local gui = Instance.new("ScreenGui")
+gui.Name = "AutoAttackGUI"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local main = Instance.new("Frame", gui)
+main.Size = UDim2.fromOffset(220,140)
+main.Position = UDim2.fromScale(0.35,0.3)
+main.BackgroundColor3 = Color3.fromRGB(25,25,25)
+main.BorderSizePixel = 0
+main.Active = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,12)
+
+local header = Instance.new("Frame", main)
+header.Size = UDim2.new(1,0,0,35)
+header.BackgroundColor3 = Color3.fromRGB(35,35,35)
+header.BorderSizePixel = 0
+header.Active = true
+Instance.new("UICorner", header).CornerRadius = UDim.new(0,12)
+
+local title = Instance.new("TextLabel", header)
+title.Size = UDim2.new(1,-40,1,0)
+title.Position = UDim2.fromOffset(10,0)
+title.BackgroundTransparency = 1
+title.Text = "⚔ Auto Attack"
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+local fold = Instance.new("TextButton", header)
+fold.Size = UDim2.fromOffset(30,25)
+fold.Position = UDim2.new(1,-35,0,5)
+fold.Text = "-"
+fold.Font = Enum.Font.GothamBold
+fold.TextSize = 18
+fold.BackgroundColor3 = Color3.fromRGB(60,60,60)
+fold.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", fold)
+
+local body = Instance.new("Frame", main)
+body.Position = UDim2.fromOffset(0,40)
+body.Size = UDim2.new(1,0,1,-45)
+body.BackgroundTransparency = 1
+
+local toggle = Instance.new("TextButton", body)
+toggle.Size = UDim2.fromOffset(180,40)
+toggle.Position = UDim2.fromOffset(20,20)
+toggle.Text = "AUTO : OFF"
+toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 14
+toggle.BackgroundColor3 = Color3.fromRGB(170,60,60)
+toggle.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", toggle)
+
+-- ===== DRAG =====
+do
+	local dragging, dragStart, startPos
+	header.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = main.Position
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - dragStart
+			main.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+end
+
+-- ===== FOLD =====
+local folded = false
+local fullSize = main.Size
+fold.MouseButton1Click:Connect(function()
+	folded = not folded
+	body.Visible = not folded
+	main.Size = folded and UDim2.fromOffset(220,40) or fullSize
+	fold.Text = folded and "+" or "-"
+end)
+
+-- ===== TOGGLE =====
+toggle.MouseButton1Click:Connect(function()
+	AUTO = not AUTO
+	toggle.Text = AUTO and "AUTO : ON" or "AUTO : OFF"
+	toggle.BackgroundColor3 = AUTO and Color3.fromRGB(60,170,80)
+		or Color3.fromRGB(170,60,60)
+
+	if not AUTO then
+		disableHover()
+	end
+end)
+
+-- ===== AUTO ATTACK LOOP =====
+task.spawn(function()
+	while true do
+		if AUTO and hrp and humanoid and humanoid.Health > 0 then
+			local nearest, bestDist
+
+			for _, m in ipairs(MobsFolder:GetChildren()) do
+				if m:IsA("Model")
+				and m:FindFirstChild("Humanoid")
+				and m:FindFirstChild("HumanoidRootPart")
+				and m.Humanoid.Health > 0 then
+
+					local dist = (hrp.Position - m.HumanoidRootPart.Position).Magnitude
+					if dist <= SAME_ZONE_DISTANCE then
+						if not bestDist or dist < bestDist then
+							bestDist = dist
+							nearest = m
+						end
+					end
+				end
+			end
+
+			if nearest then
+				local cf = nearest.HumanoidRootPart.CFrame * CFrame.new(0, HEAD_OFFSET, 0)
+				hrp.CFrame = cf
+				enableHover(cf)
+
+				pcall(function()
+					CombatRemote:InvokeServer(
+						SkillIndex,
+						{nearest},
+						HitType,
+						HitDelay
+					)
+				end)
+			end
+		else
+			disableHover()
+		end
+		task.wait(LOOP_DELAY)
+	end
+end)
